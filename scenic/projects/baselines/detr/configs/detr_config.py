@@ -102,7 +102,7 @@ def get_config():
   config.pretrained_backbone_configs = ml_collections.ConfigDict()
   # Download pretrained ResNet50 checkpoints from here:
   # https://github.com/google-research/scenic/tree/main/scenic/projects/baselines pylint: disable=line-too-long
-  config.pretrained_backbone_configs.checkpoint_path = 'path_to_checkpoint_of_resnet_50'
+  config.pretrained_backbone_configs.checkpoint_path = '/Users/kanhua/Library/CloudStorage/Dropbox/My Mac (Kan-Huas-MacBook-Pro.local)/Downloads/ResNet50_ImageNet1k'
 
   # Logging.
   config.write_summary = True

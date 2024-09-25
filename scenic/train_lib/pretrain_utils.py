@@ -20,6 +20,10 @@ import re
 from typing import Any, Dict, Mapping, List, Optional, Union
 
 from absl import logging
+
+import sys
+sys.path.append("/Users/kanhua/Library/CloudStorage/Dropbox/Programming/scenic/big_vision")
+
 from big_vision import utils
 import flax
 from flax.training import checkpoints

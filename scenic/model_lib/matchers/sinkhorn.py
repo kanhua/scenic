@@ -22,7 +22,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from ott.geometry import geometry
-from ott.tools import transport
+from ott.solvers.linear import solve
 
 
 def idx2permutation(row_ind, col_ind):
@@ -126,13 +126,17 @@ def sinkhorn_matcher(cost: jnp.ndarray,
   Returns:
     An assignment of size [B, 2, N].
   """
+
   def coupling_fn(c):
-    geom = geometry.Geometry(
-        cost_matrix=c, epsilon=epsilon, init=init, decay=decay)
-    return transport.solve(geom,
-                           max_iterations=num_iters,
-                           chg_momentum_from=chg_momentum_from,
-                           threshold=threshold).matrix
+      geom = geometry.Geometry(
+          cost_matrix=c, epsilon=epsilon, init=init, decay=decay)
+      solution = solve(
+          geom=geom,
+          max_iterations=num_iters,
+          chg_momentum_from=chg_momentum_from,
+          threshold=threshold
+      )
+      return solution.matrix
 
   coupling = jax.vmap(coupling_fn)(cost)
 

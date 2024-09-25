@@ -1,2 +1,2 @@
 pycocotools
-ott-jax>=0.2.0
+ott-jax==0.4.5

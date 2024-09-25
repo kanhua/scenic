@@ -21,7 +21,8 @@ from typing import Any, Dict, Optional, Set
 
 from absl import logging
 from flax import core as flax_core
-from flax import optim as optimizers
+#from flax import optim as optimizers
+import optax
 from flax import traverse_util
 import jax
 from jax.example_libraries import optimizers as experimental_optimizers
@@ -34,10 +35,13 @@ from scenic.common_lib import image_utils
 from scenic.dataset_lib.coco_dataset import coco_eval
 from scenic.model_lib.base_models import box_utils
 from scenic.train_lib_deprecated import optimizers as scenic_optimizers
-from scenic.train_lib_deprecated import train_utils
+#from scenic.train_lib_deprecated import train_utils
 import scipy.special
 import tensorflow as tf
 
+
+class TrainingDivergedError(Exception):
+  pass
 
 class DetrGlobalEvaluator():
   """An interface between the Scenic DETR implementation and COCO evaluators."""
@@ -194,7 +198,7 @@ def normalize_metrics_summary(metrics_summary, split,
   for key, val in metrics_summary.items():
     metrics_summary[key] = val[0] / val[1]
     if np.isnan(metrics_summary[key]):
-      raise train_utils.TrainingDivergedError(
+      raise TrainingDivergedError(
           'NaN detected in {}'.format(f'{split}_{key}'))
 
   # compute and add object_detection_loss using globally normalize terms
@@ -320,7 +324,7 @@ def draw_boxes_side_by_side(pred: Dict[str, Any], batch: Dict[str, Any],
 
 
 def get_detr_optimizer(config):
-  """Makes a Flax MultiOptimizer for DETR."""
+  """Makes an Optax optimizer for DETR."""
   other_optim = scenic_optimizers.get_optimizer(config)
 
   if config.get('backbone_training'):
@@ -331,35 +335,45 @@ def get_detr_optimizer(config):
   def is_bn(path):
     # For DETR we need to skip the BN affine transforms as well.
     names = ['/bn1/', '/bn2/', '/bn3/', '/init_bn/', '/proj_bn/']
-    for s in names:
-      if s in path:
-        return True
-    return False
-  backbone_traversal = optimizers.ModelParamTraversal(
-      lambda path, param: ('backbone' in path) and (not is_bn(path)))
-  other_traversal = optimizers.ModelParamTraversal(
-      lambda path, param: 'backbone' not in path)
+    return any(s in path for s in names)
 
-  return MultiOptimizerWithLogging((backbone_traversal, backbone_optim),
-                                   (other_traversal, other_optim))
+  def flattened_traversal(fn):
+    def mask(data):
+      flat = traverse_util.flatten_dict(data)
+      return traverse_util.unflatten_dict({k: fn(k, v) for k, v in flat.items()})
+
+    return mask
+
+  backbone_mask = flattened_traversal(lambda path, _: 'backbone' in path and not is_bn(path))
+  other_mask = flattened_traversal(lambda path, _: 'backbone' not in path)
+
+  tx = optax.chain(
+    optax.masked(backbone_optim, mask=backbone_mask),
+    optax.masked(other_optim, mask=other_mask)
+  )
+
+  return OptimizerWithLogging(tx)
 
 
-class MultiOptimizerWithLogging(optimizers.MultiOptimizer):
-  """Adds logging to MultiOptimizer to show which params are trained."""
+class OptimizerWithLogging:
+  def __init__(self, tx):
+    self.tx = tx
 
-  def init_state(self, params):
+  def init(self, params):
     self.log(params)
-    return super().init_state(params)
+    return self.tx.init(params)
+
+  def update(self, grads, opt_state, params=None):
+    return self.tx.update(grads, opt_state, params)
 
   def log(self, inputs):
-    for i, traversal in enumerate(self.traversals):
-      params = _get_params_dict(inputs)
-      flat_dict = traverse_util.flatten_dict(params)
-      for key, value in _sorted_items(flat_dict):
+    flat_dict = traverse_util.flatten_dict(inputs)
+    for i, (mask_fn, _) in enumerate(self.tx.inner_txs):
+      for key, value in sorted(flat_dict.items()):
         path = '/' + '/'.join(key)
-        if traversal._filter_fn(path, value):  # pylint: disable=protected-access
+        if mask_fn({'': value}):
           logging.info(
-              'ParamTraversalLogger (opt %d): %s, %s', i, value.shape, path)
+            'ParamTraversalLogger (opt %d): %s, %s', i, value.shape, path)
 
 
 def _sorted_items(x):
