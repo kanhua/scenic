@@ -296,7 +296,7 @@ def train(
           debug=config.debug_train),
       axis_name='batch',
       # We can donate both buffers of train_state and train_batch.
-      donate_argnums=(0, 1),
+      # donate_argnums=(0, 1),
   )
   eval_step_pmapped = jax.pmap(
       functools.partial(
@@ -306,7 +306,7 @@ def train(
           debug=config.debug_eval),
       axis_name='batch',
       # We can donate the eval_batch's buffer.
-      donate_argnums=(1,),
+      # donate_argnums=(1,),
   )
   log_eval_steps = config.get('log_eval_steps') or steps_per_epoch
   if not log_eval_steps:
@@ -366,8 +366,8 @@ def train(
       # Additional training logs: learning rate:
       t_logs = jax.tree_util.tree_map(jax_utils.unreplicate, t_logs)
       extra_training_logs.append(t_logs)
-    for h in hooks:
-      h(step)
+    #for h in hooks:
+    #  h(step)
     # Below are once-in-a-while ops -> pause.
     ###################### LOG TRAIN SUMMARY ########################
     if ((step % log_summary_steps == 1) or (step == total_steps) or

@@ -20,7 +20,13 @@ import re
 from typing import Any, Dict, Mapping, List, Optional, Union
 
 from absl import logging
-from big_vision import utils
+
+import sys
+
+try:
+    from big_vision import utils
+except ImportError:
+    utils = None
 import flax
 from flax.training import checkpoints
 import numpy as np

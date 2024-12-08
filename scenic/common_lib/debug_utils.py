@@ -136,11 +136,14 @@ def compute_flops(
       dummy_input.append(None)
 
   analysis = jax.jit(flax_model_apply_fn).lower(*dummy_input).cost_analysis()
-  flops = analysis['flops']
-  if fuse_multiply_add:
-    flops = flops / 2
-  logging.info('GFLOPs %0.3f for input spec: %s', flops / 10**9, input_spec)
-  return flops
+  if analysis:
+    flops = analysis['flops']
+    if fuse_multiply_add:
+      flops = flops / 2
+    logging.info('GFLOPs %0.3f for input spec: %s', flops / 10**9, input_spec)
+    return flops
+  else:
+    return 0
 
 
 def compute_flops_with_pytree(
