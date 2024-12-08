@@ -64,6 +64,7 @@ _IMPORT_TABLE = {
         'scenic.projects.robust_segvit.datasets.segmentation_variants'
     ),
     'flexio': 'scenic.dataset_lib.flexio.flexio',
+    'imagenette': 'scenic.dataset_lib.imagenette_dataset',
 }
 
 

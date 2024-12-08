@@ -723,6 +723,7 @@ def bind_rng_to_host_device(
     return jax.random.fold_in(rng, jax.process_index())
   elif bind_to == 'device':
     return jax.random.fold_in(rng, jax.lax.axis_index(axis_name))
+    #return jax.random.fold_in(rng, 0)
   else:
     raise ValueError(
         "`bind_to` should be one of the `[None, 'host', 'device']`"
